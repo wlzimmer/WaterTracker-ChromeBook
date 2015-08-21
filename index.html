@@ -3,11 +3,37 @@
 <head>
   <title>JavaScriptChromeApp</title>
   <link rel="stylesheet" href="styles.css">
+    <script src="lib/jquery-mobile/js/jquery-1.11.0.min.js"></script>
+    <script src="onload.js"></script>
+    <script src="lib/jquery-mobile/js/jquery.mobile-1.4.0.min.js"></script>
+    <script src="index.js"></script>
+    <link rel="stylesheet" href="lib/jquery-mobile/css/jquery.mobile-1.4.0.min.css" />
 </head>
 
 <body>
-  <h1 id="greeting"></h1>
-
-  <script src="main.js"></script>
-</body>
-</html>
+ 	<section id="home" data-role="page">
+          <header data-role="header" data-position="fixed" data-theme="b">
+            <h1><div id="deviceUUID" style="line-height: 30px;vertical-align: bottom;">Water Tracker</div></h1>
+          </header>
+            <div id="mainPage">
+                <div id="notfound">
+                  No Tracker Found. <br> Check to see if it is turned on and within range.
+                </div>
+                <ul id="deviceList">                    
+                </ul>
+                <button id="refreshButton">Refresh</button>
+            </div>
+            <div id="detailPage" class="content" data-role="content" style="padding:20px;font-size:120%">
+            <table style="text-align: left;">
+              <tr><td>Humidity</td><td style="text-align: right;width:75px;"><span id="data0"></span></td><td style="padding-left:20px;">% H</td></tr>
+              <tr><td>Temp</td><td style="text-align: right;width:75px;"><span id="data1"></span></td></td><td style="padding-left:20px;">Deg C</td></tr>
+              <tr><td>Moisture</td><td style="text-align: right;width:75px;"><span id="data2"></span></td></td><td style="padding-left:20px;">0 - 100</td></tr>
+              <tr><td>Light</td><td style="text-align: right;width:75px;"><span id="data3"></span></td><td style="padding-left:20px;"> FC </td></tr>
+            </table>
+                <button id="closeButton">Disconnect</button>
+            </div>            
+	  <footer data-role="footer" data-position="fixed" data-theme="b">
+	    <h1>Water Tracker V 1.1</h1>
+	  </footer>
+      </section>
+    </body></html>
