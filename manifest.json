@@ -16,4 +16,7 @@
       "scripts": ["background.js"]
     }
   }
+  "bluetooth": {
+  "low_energy": true
+}
 }

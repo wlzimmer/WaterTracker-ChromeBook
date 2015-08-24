@@ -28,6 +28,7 @@ var devices = [];
 
 var app = {
 initialize: function() {
+
     this.bindEvents();
     detailPage.hidden = true;
 },
@@ -44,7 +45,9 @@ refreshDeviceList: function() {
     $("#deviceList").hide();
     $("#notfound").show();
     devices = []; // empties the list
-    rfduino.discover(5, app.onDiscoverDevice, app.onError);
+    chrome.bluetooth.startDiscovery(function() {});  //ChromeBook
+    chrome.bluetooth.onDeviceAdded.addListener(app.onDiscoverDevice);  //ChromeBook
+//    rfduino.discover(5, app.onDiscoverDevice, app.onError);  //ChromeBook
 },
     
 onDiscoverDevice: function(device) {
@@ -53,7 +56,8 @@ onDiscoverDevice: function(device) {
     deviceList.innerHTML = '';
     devices.push (device);
     devices = devices.sort(function(a, b) {
-                           return (b.rssi - a.rssi);});
+                           return (b.inquiryRssi - a.inquiryRssi);});  //ChromeBook
+//                           return (b.rssi - a.rssi);});  //ChromeBook
     for (var idevice in devices) {
         var listItem = document.createElement('li');
         listItem.onclick = app.connect; // assume not scrolling
@@ -65,10 +69,12 @@ onDiscoverDevice: function(device) {
 },
     
 connect: function(e) {
+    chrome.bluetooth.stopDiscovery(function() {}); //ChromeBook
     app.showDetailPage();
     var uuid = this.getAttribute('uuid'),name=this.innerHTML,
     onConnect = function() {
-        rfduino.onData(app.onData, app.onError);
+//        rfduino.onData(app.onData, app.onError);  //ChromeBook
+        
         deviceUUID.innerHTML = name;
     };
     deviceUUID.innerHTML = "Connecting";
@@ -76,8 +82,12 @@ connect: function(e) {
     data1.innerHTML = "";
     data2.innerHTML = "";
     data3.innerHTML = "";
-    rfduino.connect(uuid, onConnect);
-},
+//    rfduino.connect(uuid, onConnect);  //ChromeBook
+    chrome.bluetoothSocket.create(function(createInfo) {  //ChromeBook
+      app.socketId = createInfo.socketId;
+      chrome.bluetoothSocket.connect(createInfo.socketId,
+        device.address, uuid, onConnect);
+});},
 onData: function(data) {
     console.log(data);
     var a = new Uint16Array(data);
