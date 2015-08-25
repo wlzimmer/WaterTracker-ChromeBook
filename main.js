@@ -83,11 +83,38 @@ connect: function(e) {
     data2.innerHTML = "";
     data3.innerHTML = "";
 //    rfduino.connect(uuid, onConnect);  //ChromeBook
-    chrome.bluetoothSocket.create(function(createInfo) {  //ChromeBook
-      app.socketId = createInfo.socketId;
-      chrome.bluetoothSocket.connect(createInfo.socketId,
-        device.address, uuid, onConnect);
-});},
+
+  chrome.bluetoothLowEnergy.connect(device.address, function () {
+    if (chrome.runtime.lastError) {
+      console.log('Failed to connect: ' + chrome.runtime.lastError.message);
+      return;
+    }
+
+    chrome.bluetoothLowEnergy.getServices(deviceAddress, function(services) {
+      for (var i = 0; i < services.length; i++) {
+        if (services[i].uuid == HEART_RATE_SERVICE_UUID) {
+          service = services[i];
+          break;
+        }
+        chrome.bluetoothLowEnergy.getCharacteristics(service.instanceId,
+                                             function(chracteristics) {
+        for (var i = 0; i < characteristics.length; i++) {
+          if (characteristics[i].uuid == HEART_RATE_MEASUREMENT_UUID) {
+            measurementChar = characteristics[i];
+            break;
+          }
+        }
+        chrome.bluetoothLowEnergy.onCharacteristicValueChanged.addListener(
+          function(chrc) {
+            if (chrc.instanceId != myCharId)  return;
+
+           onData (new Uint8Array(chrc.value));
+        });       
+      });
+      }
+    });
+  });
+},
 onData: function(data) {
     console.log(data);
     var a = new Uint16Array(data);
