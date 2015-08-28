@@ -71,6 +71,8 @@ refreshDeviceList: function() {
     $("#notfound").show();
     devices = []; // empties the list
     chrome.bluetooth.onDeviceAdded.addListener(app.onDiscoverDevice);  //ChromeBook
+    chrome.bluetooth.onDeviceChanged.addListener(function(device) {console.log('Change '+device.address);app.onDiscoverDevice(device);});
+    chrome.bluetooth.onDeviceRemoved.addListener(function(device) {console.log('Remove '+device.address);});
     chrome.bluetooth.startDiscovery(function() {console.log('Discover');});  //ChromeBook
 //    rfduino.discover(5, app.onDiscoverDevice, app.onError);  //ChromeBook
 },
@@ -84,13 +86,15 @@ onDiscoverDevice: function(device) {
     devices = devices.sort(function(a, b) {
                            return (b.inquiryRssi - a.inquiryRssi);});  //ChromeBook
 //                           return (b.rssi - a.rssi);});  //ChromeBook
+    app.devices = [];
     for (var idevice in devices) {
         var listItem = document.createElement('li');
         listItem.onclick = app.connect; // assume not scrolling
         var html = '<b>' + devices[idevice].name + '</b>';
-        listItem.setAttribute('uuid', devices[idevice].uuid);
+        listItem.setAttribute('uuid', devices[idevice].address);
         listItem.innerHTML = html;
         deviceList.appendChild(listItem);
+        app.devices[devices[idevice].address] = devices[idevice];
     }
 },
     
@@ -110,14 +114,17 @@ connect: function(e) {
     data3.innerHTML = "";
 //    rfduino.connect(uuid, onConnect);  //ChromeBook
 
-  chrome.bluetoothLowEnergy.connect(device.address, function () {
-    if (chrome.runtime.lastError) {
-      console.log('Failed to connect: ' + chrome.runtime.lastError.message);
-      return;
-    }
-
-    chrome.bluetoothLowEnergy.getServices(deviceAddress, function(services) {
+//  chrome.bluetoothLowEnergy.connect(device.address, function () {
+//    if (chrome.runtime.lastError) {
+//      console.log('Failed to connect: ' + chrome.runtime.lastError.message);
+//      return;
+//    }
+console.log(this.uuid);
+console.log(app.devices[uuid].uuid);
+    chrome.bluetoothLowEnergy.getServices(app.devices[uuid].address, function(services) {
+console.log('services.len=' + services.length);
       for (var i = 0; i < services.length; i++) {
+console.log(services[i].uuid);
         if (services[i].uuid == RFDUINO_SERVICE_UUID) {
           service = services[i];
           break;
@@ -148,7 +155,7 @@ connect: function(e) {
         });       
       });
     });
-  });
+//  });
 },
 
 onData: function(data) {
