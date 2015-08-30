@@ -26,10 +26,10 @@ var lightZero = 0;
 var lightSlope = 25/100;
 var devices = [];
 
-RFDUINO_SERVICE_UUID = ("00002220-0000-1000-8000-00805F9B34FB");
-RECEIVE_CHARACTERISTIC_UUID = ("00002221-0000-1000-8000-00805F9B34FB");
-SEND_CHARACTERISTIC_UUID = ("00002222-0000-1000-8000-00805F9B34FB");
-DISCONNECT_CHARACTERISTIC_UUID = ("00002223-0000-1000-8000-00805F9B34FB");
+RFDUINO_SERVICE_UUID = ("00002220-0000-1000-8000-00805f9b34fb");
+RECEIVE_CHARACTERISTIC_UUID = ("00002221-0000-1000-8000-00805f9b34fb");
+SEND_CHARACTERISTIC_UUID = ("00002222-0000-1000-8000-00805f9b34fb");
+DISCONNECT_CHARACTERISTIC_UUID = ("00002223-0000-1000-8000-00805f9b34fb");
 
     // 0x2902 org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
 CLIENT_CHARACTERISTIC_CONFIGURATION_UUID = ("00002902-0000-1000-8000-00805F9B34FB");
@@ -101,13 +101,13 @@ onDiscoverDevice: function(device) {
 connect: function(e) {
     chrome.bluetooth.stopDiscovery(function() {}); //ChromeBook
     app.showDetailPage();
-    var uuid = this.getAttribute('uuid'),name=this.innerHTML,
-    onConnect = function() {
+    var uuid = this.getAttribute('uuid'),name=this.innerHTML;
+//    onConnect = function() {  //ChromeBook
 //        rfduino.onData(app.onData, app.onError);  //ChromeBook
         
-        deviceUUID.innerHTML = name;
-    };
-    deviceUUID.innerHTML = "Connecting";
+//        deviceUUID.innerHTML = name;
+//    };
+    $('#deviceUUID').html("Connecting");
     data0.innerHTML = "";
     data1.innerHTML = "";
     data2.innerHTML = "";
@@ -119,47 +119,64 @@ connect: function(e) {
 //      console.log('Failed to connect: ' + chrome.runtime.lastError.message);
 //      return;
 //    }
-console.log(this.uuid);
-console.log(app.devices[uuid].uuid);
-    chrome.bluetoothLowEnergy.getServices(app.devices[uuid].address, function(services) {
-console.log('services.len=' + services.length);
+console.log('uuid='+uuid+'.');
+  chrome.bluetoothLowEnergy.connect(uuid, function () {
+    if (chrome.runtime.lastError) {
+      console.log('Failed to connect: ' + chrome.runtime.lastError.message);
+//      return;
+    }
+
+    chrome.bluetoothLowEnergy.getServices(uuid, function(services) {
       for (var i = 0; i < services.length; i++) {
-console.log(services[i].uuid);
         if (services[i].uuid == RFDUINO_SERVICE_UUID) {
           service = services[i];
           break;
         }
       }
+console.log('UUID='+service.uuid);
+    if (chrome.runtime.lastError) {
+      console.log('Fubar: ' + chrome.runtime.lastError.message);
+//      return;
+    }
     chrome.bluetoothLowEnergy.getCharacteristics(service.instanceId,
-                                             function(chracteristics) {
+                                             function(characteristics) {
+    if (chrome.runtime.lastError) {
+      console.log('Failed characteristics: ' + chrome.runtime.lastError.message);
+//      return;
+    }
+console.log('characteristics=' + JSON.stringify(characteristics));
       for (var i = 0; i < characteristics.length; i++) {
-        if (characteristics[i].uuid == HEART_RATE_MEASUREMENT_UUID) {
+        if (characteristics[i].uuid == RECEIVE_CHARACTERISTIC_UUID) {
           chrc = characteristics[i];
           break;
         }
+        myCharId = chrc.instanceId;
       }
       chrome.bluetoothLowEnergy.startCharacteristicNotifications(chrc.instanceId,
         function() {
           if (chrome.runtime.lastError) {
             console.log('Failed to enable notifications: ' +
                   chrome.runtime.lastError.message);
-          return;
+//          return;
         }
+console.log('Listen='+chrc.uuid);
       });
 
       chrome.bluetoothLowEnergy.onCharacteristicValueChanged.addListener(
         function(chrc) {
+console.log('Listen='+chrc.uuid);
           if (chrc.instanceId != myCharId)  return;
-
+console.log('Found chrc');
          onData (chrc.value);
         });       
       });
     });
+  });
 //  });
 },
 
 onData: function(data) {
-    console.log(data);
+    console.log('onData='+JSON.stringify(data));
     var a = new Uint16Array(data);
     if      (a[0] < 1024) {data0.innerHTML = a[0]/10;}
     else if (a[0] < 2048) {data1.innerHTML = (a[0]-1024);}
@@ -168,6 +185,13 @@ onData: function(data) {
 },
 disconnect: function() {
     deviceUUID.innerHTML = "Water Tracker";
+/*
+            BluetoothGattCharacteristic characteristic = activePeripheral.getDisconnectCharacteristic();
+            characteristic.setValue("");
+            characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+            gatt.writeCharacteristic(characteristic);
+            activePeripheral.disconnect();
+*/
 //    rfduino.disconnect(app.showMainPage, app.onError);  //ChromeBook
 },
 showMainPage: function() {

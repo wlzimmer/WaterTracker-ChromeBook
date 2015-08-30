@@ -17,7 +17,7 @@
     }
   },
   "bluetooth": {
-  "low_energy": true,
-  "uuids": ["2220"]
-}
+    "uuids": [ "2220", "2221" ],
+    "low_energy": true
+  }
 }
