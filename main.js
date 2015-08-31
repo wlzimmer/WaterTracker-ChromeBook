@@ -71,8 +71,24 @@ refreshDeviceList: function() {
     $("#notfound").show();
     devices = []; // empties the list
     chrome.bluetooth.onDeviceAdded.addListener(app.onDiscoverDevice);  //ChromeBook
-    chrome.bluetooth.onDeviceChanged.addListener(function(device) {console.log('Change '+device.address);app.onDiscoverDevice(device);});
-    chrome.bluetooth.onDeviceRemoved.addListener(function(device) {console.log('Remove '+device.address);});
+    chrome.bluetooth.onDeviceChanged.addListener(function(device) {
+      app.onDiscoverDevice(device);
+      if(devices === undefined) return;
+      for (i=0; devices.length; i++) {
+        if (device.address == devices[i].address) return;
+      }
+      console.log('Change '+device.address);
+    });
+    chrome.bluetooth.onDeviceRemoved.addListener(function(device) {
+      chrome.bluetoothLowEnergy.stopCharacteristicNotifications(myCharId.instanceId,
+        function() {
+          if (chrome.runtime.lastError) {
+            console.log('Failed to enable notifications: ' +
+                  chrome.runtime.lastError.message);
+//          return;
+        }
+      });
+    });
     chrome.bluetooth.startDiscovery(function() {console.log('Discover');});  //ChromeBook
 //    rfduino.discover(5, app.onDiscoverDevice, app.onError);  //ChromeBook
 },
@@ -144,31 +160,35 @@ console.log('UUID='+service.uuid);
       console.log('Failed characteristics: ' + chrome.runtime.lastError.message);
 //      return;
     }
-console.log('characteristics=' + JSON.stringify(characteristics));
+//console.log('characteristics=' + JSON.stringify(characteristics));
       for (var i = 0; i < characteristics.length; i++) {
+console.log('Test characteristic='+(characteristics[i].uuid==RECEIVE_CHARACTERISTIC_UUID));
         if (characteristics[i].uuid == RECEIVE_CHARACTERISTIC_UUID) {
-          chrc = characteristics[i];
+          myCharId = characteristics[i];
+console.log('set mycharId='+JSON.stringify(myCharId));
           break;
         }
-        myCharId = chrc.instanceId;
       }
-      chrome.bluetoothLowEnergy.startCharacteristicNotifications(chrc.instanceId,
+//      app.myCharId = chrc.instanceId;
+      chrome.bluetoothLowEnergy.startCharacteristicNotifications(myCharId.instanceId,
         function() {
           if (chrome.runtime.lastError) {
             console.log('Failed to enable notifications: ' +
                   chrome.runtime.lastError.message);
 //          return;
         }
-console.log('Listen='+chrc.uuid);
-      });
+console.log('Listen='+myCharId.uuid);
 
-      chrome.bluetoothLowEnergy.onCharacteristicValueChanged.addListener(
-        function(chrc) {
-console.log('Listen='+chrc.uuid);
-          if (chrc.instanceId != myCharId)  return;
-console.log('Found chrc');
-         onData (chrc.value);
-        });       
+        chrome.bluetoothLowEnergy.onCharacteristicValueChanged.addListener(
+          function(chrc) {
+console.log('Changed Listen ='+JSON.stringify(new Uint8Array(new Uint8Array(chrc.value))));
+//console.log('get mycharId='+JSON.stringify(app.mycharId));
+            if (chrc.uuid != myCharId.uuid)  return;
+//console.log('Found chrc='+JSON.stringify(chrc.value));
+           app.onData (chrc.value);
+          }); 
+
+        });
       });
     });
   });
@@ -176,8 +196,9 @@ console.log('Found chrc');
 },
 
 onData: function(data) {
-    console.log('onData='+JSON.stringify(data));
-    var a = new Uint16Array(data);
+//    console.log('onData='+JSON.stringify(data));
+    var a = app.eight2sixteen(data);
+console.log('onData='+JSON.stringify(a));
     if      (a[0] < 1024) {data0.innerHTML = a[0]/10;}
     else if (a[0] < 2048) {data1.innerHTML = (a[0]-1024);}
     else if (a[0] < 3072) {data2.innerHTML = Math.max(0,Math.round((a[0]-2048-soilZero)/soilSlope));}
@@ -208,6 +229,15 @@ showDetailPage: function() {
 },
 onError: function(reason) {
     alert(reason);
+},
+
+eight2sixteen: function (data){
+  a = new Uint8Array(data);
+console.log('data8='+JSON.stringify(a));
+  b=[];
+  for (i=0; i<a.length; i+=2)  b.push((a[i+1]*256)+a[i]);
+console.log('data16='+JSON.stringify(b));
+  return b;
 }
 }; 
 window.onload = function() { //ChromeBook
