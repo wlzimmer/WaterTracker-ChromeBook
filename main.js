@@ -154,7 +154,7 @@ console.log('uuid='+uuid);
 console.log('Connect='+uuid);
     if (chrome.runtime.lastError) {
       console.log('Failed to connect: ' + chrome.runtime.lastError.message);
-      return;
+//      return;
     }
 
     chrome.bluetoothLowEnergy.getServices(uuid, function(services) {
@@ -227,17 +227,16 @@ disconnect: function() {
     app.showMainPage();
     app.refreshDeviceList();
     chrome.bluetooth.startDiscovery(function() {console.log('Discover');});  //ChromeBook
-/*chrome.bluetoothLowEnergy.writeCharacteristicValue(app.disconnect.instanceId,
-                                                   myBytes.buffer,
+    chrome.bluetoothLowEnergy.writeCharacteristicValue(app.disconnect.instanceId,
+                                                   (new Uint8Array([])).buffer,
                                                    function() {
   if (chrome.runtime.lastError) {
-    console.log('Failed to write value: ' +
-                chrome.runtime.lastError.message);
+    console.log('Failed to write value: ' + chrome.runtime.lastError.message);
     return;
   }
 
   // Value is written now.
-});*//*
+});/*
             BluetoothGattCharacteristic characteristic = activePeripheral.getDisconnectCharacteristic();
             characteristic.setValue("");
             characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
