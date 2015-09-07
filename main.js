@@ -19,8 +19,6 @@
 
 var soilZero = 255;
 var soilSlope = -1.4;
-// .4   --> 8    --> 60
-//  7.0 --> 11.5 --> 670
 
 var lightZero = 0;
 var lightSlope = 25/100;
@@ -30,8 +28,6 @@ RFDUINO_SERVICE_UUID = ("00002220-0000-1000-8000-00805f9b34fb");
 RECEIVE_CHARACTERISTIC_UUID = ("00002221-0000-1000-8000-00805f9b34fb");
 SEND_CHARACTERISTIC_UUID = ("00002222-0000-1000-8000-00805f9b34fb");
 DISCONNECT_CHARACTERISTIC_UUID = ("00002223-0000-1000-8000-00805f9b34fb");
-
-    // 0x2902 org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
 CLIENT_CHARACTERISTIC_CONFIGURATION_UUID = ("00002902-0000-1000-8000-00805F9B34FB");
 
 
@@ -55,36 +51,27 @@ console.log(adapter.powered);
         console.log("Adapter radio is off");
       }
     }*/
-  });//    detailPage.hidden = true;  //ChromeBook
+  });
     $('#detailPage').hide();
 },
 bindEvents: function() {
     document.addEventListener('deviceready', this.onDeviceReady, false);
-//    refreshButton.addEventListener('touchstart', this.refreshDeviceList, false); //ChromeBook
     $('#refreshButton').click(this.refreshDeviceList);
-//    closeButton.addEventListener('touchstart', this.disconnect, false);
     $('#closeButton').click(this.disconnect);
 },
 
-//onDeviceReady: function() {  //ChromeBook
-//    app.refreshDeviceList();
-//},
-    
 refreshDeviceList: function() {
   console.log('refreshDeviceList');
     $("#deviceList").hide();
     $("#notfound").show();
     devices = []; // empties the list
     chrome.bluetooth.onDeviceAdded.addListener(function(device) { 
-console.log('Add='+device.address);      
       app.onDiscoverDevice(device);});  //ChromeBook
     chrome.bluetooth.onDeviceChanged.addListener(function(device) {
-console.log('Change='+device.address);      
       app.onDiscoverDevice(device);});
     chrome.bluetooth.onDeviceRemoved.addListener(function(device) {
       for( i=devices.length-1; i>=0; i--) {
         if( devices[i].address == device.address) {
-console.log("remove="+device.address);
           devices.splice(i,1);
         }
       }
@@ -103,12 +90,10 @@ console.log("remove="+device.address);
 },
 
 onDiscoverDevice: function(device) {
-//  console.log('onDiscoverDevice');
     $("#notfound").hide();
     $("#deviceList").show();
     for( i=devices.length-1; i>=0; i--) {
       if( devices[i].address == device.address) {
-console.log('dup='+ device.address);
         devices.splice(i,1);
       }
     }
@@ -116,8 +101,6 @@ console.log('dup='+ device.address);
     devices.push (device);
     devices = devices.sort(function(a, b) {
                            return (b.inquiryRssi - a.inquiryRssi);});  //ChromeBook
-//                           return (b.rssi - a.rssi);});  //ChromeBook
-//    app.devices = [];
     for (var idevice in devices) {
         var listItem = document.createElement('li');
         listItem.onclick = app.connect; // assume not scrolling
@@ -125,39 +108,39 @@ console.log('dup='+ device.address);
         listItem.setAttribute('uuid', devices[idevice].address);
         listItem.innerHTML = html;
         deviceList.appendChild(listItem);
-//        app.devices[devices[idevice].address] = devices[idevice];
     }
 },
     
 connect: function(e) {
     chrome.bluetooth.stopDiscovery(function() {console.log('Stop Discovery');}); //ChromeBook
-    var uuid = this.getAttribute('uuid'),name=this.innerHTML;
-//    onConnect = function() {  //ChromeBook
-//        rfduino.onData(app.onData, app.onError);  //ChromeBook
-        
+    uuid = this.getAttribute('uuid'),name=this.innerHTML;
+
 //        deviceUUID.innerHTML = name;
-//    };
+
     $('#deviceUUID').html("Connecting");
     data0.innerHTML = "";
     data1.innerHTML = "";
     data2.innerHTML = "";
     data3.innerHTML = "";
-//    rfduino.connect(uuid, onConnect);  //ChromeBook
-
-//  chrome.bluetoothLowEnergy.connect(device.address, function () {
-//    if (chrome.runtime.lastError) {
-//      console.log('Failed to connect: ' + chrome.runtime.lastError.message);
-//      return;
-//    }
 console.log('uuid='+uuid);
   chrome.bluetoothLowEnergy.connect(uuid, function () {
 console.log('Connect='+uuid);
     if (chrome.runtime.lastError) {
       console.log('Failed to connect: ' + chrome.runtime.lastError.message);
-//      return;
     }
 
-    chrome.bluetoothLowEnergy.getServices(uuid, function(services) {
+    chrome.bluetoothLowEnergy.getServices(uuid, app.getCharacteristics);
+  });
+},
+
+getCharacteristics: function(services) {
+console.log('getCharacteristics');
+      if (services.length === 0) {
+console.log('services.length === 0 -- uuid='+uuid);
+        chrome.bluetoothLowEnergy.getServices(uuid, app.getCharacteristics);
+        return;
+      }
+     
       for (var i = 0; i < services.length; i++) {
         if (services[i].uuid == RFDUINO_SERVICE_UUID) {
 console.log('Testing Service='+services[i].uuid +' '+ RFDUINO_SERVICE_UUID);
@@ -180,7 +163,6 @@ console.log('GetService='+app.service.uuid);
     }
 console.log('characteristics=' + JSON.stringify(characteristics));
       for (var i = 0; i < characteristics.length; i++) {
-//console.log('Test characteristic='+(characteristics[i].uuid==RECEIVE_CHARACTERISTIC_UUID));
         if (characteristics[i].uuid == DISCONNECT_CHARACTERISTIC_UUID) 
           app.disconnect = characteristics[i];
         if (characteristics[i].uuid == RECEIVE_CHARACTERISTIC_UUID) 
@@ -199,24 +181,15 @@ console.log('Listen='+app.data.uuid);
 
         chrome.bluetoothLowEnergy.onCharacteristicValueChanged.addListener(
           function(chrc) {
-console.log('Changed Listen ='+JSON.stringify(new Uint8Array(new Uint8Array(chrc.value))));
-//console.log('get app.data='+JSON.stringify(app.mydata));
             if (chrc.uuid != app.data.uuid)  return;
-//console.log('Found chrc='+JSON.stringify(chrc.value));
            app.onData (chrc.value);
           }); 
-
         });
       });
-    });
-  });
-//  });
-},
+    },
 
 onData: function(data) {
-//    console.log('onData='+JSON.stringify(data));
     var a = app.eight2sixteen(data);
-console.log('onData='+JSON.stringify(a));
     if      (a[0] < 1024) {data0.innerHTML = a[0]/10;}
     else if (a[0] < 2048) {data1.innerHTML = (a[0]-1024);}
     else if (a[0] < 3072) {data2.innerHTML = Math.max(0,Math.round((a[0]-2048-soilZero)/soilSlope));}
@@ -235,22 +208,24 @@ disconnect: function() {
     return;
   }
 
-  // Value is written now.
-});/*
-            BluetoothGattCharacteristic characteristic = activePeripheral.getDisconnectCharacteristic();
-            characteristic.setValue("");
-            characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
-            gatt.writeCharacteristic(characteristic);
-            activePeripheral.disconnect();
-*/
-//    rfduino.disconnect(app.showMainPage, app.onError);  //ChromeBook
+});
+          chrome.bluetoothLowEnergy.disconnect(uuid, function() {
+            console.log('Disconnecting');
+            if (chrome.runtime.lastError) {
+              console.log('Disconnect: ' +
+                  chrome.runtime.lastError.message);
+            }
+         });
+//       });
 },
+
 showMainPage: function() {
 //    detailPage.hidden = true;  //ChromeBook
     $('#detailPage').hide();
 //    mainPage.hidden = false;  //ChromeBook
     $('#mainPage').show();
 },
+
 showDetailPage: function() {
 //    mainPage.hidden = true;  //ChromeBook
     $('#mainPage').hide();
@@ -263,22 +238,29 @@ onError: function(reason) {
 
 eight2sixteen: function (data){
   a = new Uint8Array(data);
-console.log('data8='+JSON.stringify(a));
+//console.log('data8='+JSON.stringify(a));
   b=[];
   for (i=0; i<a.length; i+=2)  b.push((a[i+1]*256)+a[i]);
-console.log('data16='+JSON.stringify(b));
+//console.log('data16='+JSON.stringify(b));
   return b;
 },
 
 cleanUp: function (data){  //ChromeBook
-  if (app.data !== undefined)
-       chrome.bluetoothLowEnergy.stopCharacteristicNotifications(app.data.instanceId,
-        function() {
-          if (chrome.runtime.lastError) {
-            console.log('Failed to disable notifications: ' +
+//  if (app.data !== undefined)
+//       chrome.bluetoothLowEnergy.stopCharacteristicNotifications(app.data.instanceId,
+//        function() {
+//          if (chrome.runtime.lastError) {
+//            console.log('Failed to disable notifications: ' +
+//                  chrome.runtime.lastError.message);
+//          }
+//        });
+          chrome.bluetoothLowEnergy.disconnect(uuid, function() {
+            console.log('Disconnecting');
+            if (chrome.runtime.lastError) {
+              console.log('Disconnect: ' +
                   chrome.runtime.lastError.message);
-          }
-        });
+            }
+         });
     chrome.bluetooth.stopDiscovery(function() {console.log('Stop Discover');}); 
 }
 }; 
