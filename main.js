@@ -35,7 +35,7 @@ var app = {
 service: undefined,
 uuid: undefined,
 data: undefined,
-disConnect: undefined,
+disConnectCmd: undefined,
 discovering: undefined,
 
 initialize: function() {
@@ -119,7 +119,7 @@ connect: function(e) {
     app.uuid = this.getAttribute('uuid');
     app.name = this.innerHTML;
     app.data= undefined;
-    app.disConnect= undefined;
+    app.disConnectCmd= undefined;
 
     $('#deviceUUID').html("Connecting");
     data0.innerHTML = "";
@@ -167,7 +167,7 @@ console.log('services.length === 0 -- uuid='+app.uuid);
 //console.log('characteristics=' + JSON.stringify(characteristics));
       for (var i = 0; i < characteristics.length; i++) {
         if (characteristics[i].uuid == DISCONNECT_CHARACTERISTIC_UUID) 
-          app.disconnect = characteristics[i];
+          app.disConnectCmd = characteristics[i];
         if (characteristics[i].uuid == RECEIVE_CHARACTERISTIC_UUID) 
           app.data = characteristics[i];
       }
@@ -201,19 +201,20 @@ onData: function(data) {
     else                  {data3.innerHTML = Math.max(0,Math.round((a[0]-3072-lightZero)/lightSlope*10)/10);}
 },
 disconnect: function() {
+    console.log('Disconnecting=' + app.uuid);
     deviceUUID.innerHTML = "Water Tracker";
     app.stopNotification();
     app.showMainPage();
     app.refreshDeviceList();
-    app.startDiscovery();  //ChromeBook
-    chrome.bluetoothLowEnergy.writeCharacteristicValue(app.disconnect.instanceId,
+    app.startDiscovery();  
+    chrome.bluetoothLowEnergy.writeCharacteristicValue(app.disConnectCmd.instanceId,
                                                    (new Uint8Array([])).buffer,
                                                    function() {
   if (chrome.runtime.lastError) {
     console.log('Failed to write value: ' + chrome.runtime.lastError.message);
     return;
   }
-
+  app.disConnectCmd = undefined;
 });
           chrome.bluetoothLowEnergy.disconnect(app.uuid, function() {
             console.log('Disconnecting');
@@ -221,8 +222,8 @@ disconnect: function() {
               console.log('Disconnect: ' +
                   chrome.runtime.lastError.message);
             }
+            app.service = undefined;
          });
-//       });
 },
 
 startDiscovery: function() {
@@ -238,13 +239,14 @@ stopDiscovery: function() {
 },
 
 stopNotification: function() {
-//  if (app.data !== undefined)
+  if (app.data !== undefined)
        chrome.bluetoothLowEnergy.stopCharacteristicNotifications(app.data.instanceId,
         function() {
           if (chrome.runtime.lastError) {
             console.log('Failed to disable notifications: ' +
                   chrome.runtime.lastError.message);
           }
+          app.data = undefined;
         });
 },
 
