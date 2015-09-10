@@ -29,7 +29,7 @@ RECEIVE_CHARACTERISTIC_UUID = ("00002221-0000-1000-8000-00805f9b34fb");
 SEND_CHARACTERISTIC_UUID = ("00002222-0000-1000-8000-00805f9b34fb");
 DISCONNECT_CHARACTERISTIC_UUID = ("00002223-0000-1000-8000-00805f9b34fb");
 CLIENT_CHARACTERISTIC_CONFIGURATION_UUID = ("00002902-0000-1000-8000-00805F9B34FB");
-
+TITLE = "Water Tracker - Chromebook - V.01";
 
 var app = {
 service: undefined,
@@ -54,7 +54,8 @@ console.log('Init');
       app.discovering = true;
     else
       app.discovering = false;
-    chrome.bluetooth.getDevices(function(devices) {
+    console.log('discovering='+app.discovering);
+/*    chrome.bluetooth.getDevices(function(devices) {
       for (var idevice in devices) {
         device = devices[idevice];
         console.log('address='+device.address);
@@ -62,18 +63,19 @@ console.log('Init');
         console.log('connected='+device.connected);
         console.log('uuids='+device.uuids);
       }
-    });
+    });*/
   });
     $('#detailPage').hide();
 },
 bindEvents: function() {
     document.addEventListener('deviceready', this.onDeviceReady, false);
     $('#refreshButton').click(this.refreshDeviceList);
-    $('#closeButton').click(this.disconnect);
+    $('#closeButton').click(this.refreshDeviceList);
 },
 
 refreshDeviceList: function() {
   console.log('refreshDeviceList');
+    $('#deviceUUID').html(TITLE);
     $("#deviceList").hide();
     $("#notfound").show();
     devices = []; // empties the list
@@ -88,8 +90,9 @@ refreshDeviceList: function() {
         }
       }
     });
-    app.startDiscovery();  //ChromeBook
-//    rfduino.discover(5, app.onDiscoverDevice, app.onError);  //ChromeBook
+    app.showMainPage();
+    app.disconnect();
+    app.startDiscovery();  
 },
 
 onDiscoverDevice: function(device) {
@@ -126,14 +129,19 @@ connect: function(e) {
     data1.innerHTML = "";
     data2.innerHTML = "";
     data3.innerHTML = "";
-  chrome.bluetoothLowEnergy.connect(app.uuid, function () {
+    chrome.bluetoothLowEnergy.connect(app.uuid, app.getConnection);
+},
+
+getConnection: function () {
 console.log('Connect='+app.uuid);
     if (chrome.runtime.lastError) {
       console.log('Failed to connect: ' + chrome.runtime.lastError.message);
+      chrome.bluetoothLowEnergy.connect(app.uuid, app.getConnection);
+//      app.refreshDeviceList();
+      return;
     }
 
     chrome.bluetoothLowEnergy.getServices(app.uuid, app.getCharacteristics);
-  });
 },
 
 getCharacteristics: function(services) {
@@ -153,16 +161,18 @@ console.log('services.length === 0 -- uuid='+app.uuid);
       }
       if (app.service === undefined) return;
 //console.log('GetService='+app.service.uuid);
-    app.showDetailPage();
     if (chrome.runtime.lastError) {
       console.log('Fubar: ' + chrome.runtime.lastError.message);
-//      return;
+      app.refreshDeviceList();
+      return;
     }
+    app.showDetailPage();
     chrome.bluetoothLowEnergy.getCharacteristics(app.service.instanceId,
                                              function(characteristics) {
     if (chrome.runtime.lastError) {
       console.log('Failed characteristics: ' + chrome.runtime.lastError.message);
-//      return;
+      app.refreshDeviceList();
+      return;
     }
 //console.log('characteristics=' + JSON.stringify(characteristics));
       for (var i = 0; i < characteristics.length; i++) {
@@ -178,9 +188,9 @@ console.log('services.length === 0 -- uuid='+app.uuid);
           if (chrome.runtime.lastError) {
             console.log('Failed to enable notifications: ' +
                   chrome.runtime.lastError.message + ' dataId=' + app.data.uuid);
-//            app.stopNotification();
-          return;
-        }
+            app.refreshDeviceList();
+            return;
+          }
 console.log('Listen='+app.data.uuid);
 
     $('#deviceUUID').html(app.name);
@@ -201,12 +211,10 @@ onData: function(data) {
     else                  {data3.innerHTML = Math.max(0,Math.round((a[0]-3072-lightZero)/lightSlope*10)/10);}
 },
 disconnect: function() {
+    if (app.disConnectCmd === undefined) return;
     console.log('Disconnecting=' + app.uuid);
     deviceUUID.innerHTML = "Water Tracker";
     app.stopNotification();
-    app.showMainPage();
-    app.refreshDeviceList();
-    app.startDiscovery();  
     chrome.bluetoothLowEnergy.writeCharacteristicValue(app.disConnectCmd.instanceId,
                                                    (new Uint8Array([])).buffer,
                                                    function() {
@@ -270,27 +278,9 @@ eight2sixteen: function (data){
   return b;
 },
 
-cleanUp: function (data){  //ChromeBook
-//  if (app.data !== undefined)
-//       chrome.bluetoothLowEnergy.stopCharacteristicNotifications(app.data.instanceId,
-//        function() {
-//          if (chrome.runtime.lastError) {
-//            console.log('Failed to disable notifications: ' +
-//                  chrome.runtime.lastError.message);
-//          }
-//        });
-          chrome.bluetoothLowEnergy.disconnect(app.uuid, function() {
-            console.log('Disconnecting');
-            if (chrome.runtime.lastError) {
-              console.log('Disconnect: ' +
-                  chrome.runtime.lastError.message);
-            }
-         });
-    app.stopDiscovery(); 
-}
 }; 
 window.onload = function() { //ChromeBook
-  chrome.runtime.onSuspend.addListener(function() {app.cleanUp();});
+  chrome.runtime.onSuspend.addListener(function() {app.disconnect();});
   app.showMainPage();
   app.initialize();
   app.refreshDeviceList();
