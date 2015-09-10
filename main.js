@@ -13,10 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/* global mainPage, deviceList, refreshButton */
-/* global detailPage, tempFahrenheit, tempCelsius, closeButton */
-/* global rfduino, alert */
-
 var soilZero = 255;
 var soilSlope = -1.4;
 
@@ -84,6 +80,7 @@ refreshDeviceList: function() {
     chrome.bluetooth.onDeviceChanged.addListener(function(device) {
       app.onDiscoverDevice(device);});
     chrome.bluetooth.onDeviceRemoved.addListener(function(device) {  // Appears to never trigger
+//console.log('Remove='+device.name);
       for( i=devices.length-1; i>=0; i--) {
         if( devices[i].address == device.address) {
           devices.splice(i,1);
@@ -96,27 +93,35 @@ refreshDeviceList: function() {
 },
 
 onDiscoverDevice: function(device) {
-    $("#notfound").hide();
-    $("#deviceList").show();
-    for( i=devices.length-1; i>=0; i--) {
-      if( devices[i].address == device.address) {
-        devices.splice(i,1);
+    for (i=0; i<device.uuids.length; i++)  {
+      if (device.uuids[i] == RFDUINO_SERVICE_UUID) {
+        $("#notfound").hide();
+        $("#deviceList").show();
+
+       for( j=devices.length-1; j>=0; j--) {   //Remove previous device with same uuid then add updated one
+          if( devices[j].address == device.address) {
+            devices.splice(j,1);
+          }
+        }
+        deviceList.innerHTML = '';
+        devices.push (device);
+        devices = devices.sort(app.sortFunction); 
+        for (var idevice in devices) {
+          var listItem = document.createElement('li');
+          listItem.onclick = app.connect;
+          var html = '<b>' + devices[idevice].name +'</b>';
+          listItem.setAttribute('uuid', devices[idevice].address);
+          listItem.innerHTML = html;
+          deviceList.appendChild(listItem);
+        }
       }
     }
-    deviceList.innerHTML = '';
-    devices.push (device);
-    devices = devices.sort(function(a, b) {
-                           return (b.inquiryRssi - a.inquiryRssi);});  //ChromeBook
-    for (var idevice in devices) {
-        var listItem = document.createElement('li');
-        listItem.onclick = app.connect; // assume not scrolling
-        var html = '<b>' + devices[idevice].name + '</b>';
-        listItem.setAttribute('uuid', devices[idevice].address);
-        listItem.innerHTML = html;
-        deviceList.appendChild(listItem);
-    }
 },
-    
+
+sortFunction: function(a, b) {
+                           return (b.inquiryRssi - a.inquiryRssi);
+},
+  
 connect: function(e) {
     app.stopDiscovery(); //ChromeBook
     app.uuid = this.getAttribute('uuid');
@@ -133,11 +138,10 @@ connect: function(e) {
 },
 
 getConnection: function () {
-console.log('Connect='+app.uuid);
     if (chrome.runtime.lastError) {
       console.log('Failed to connect: ' + chrome.runtime.lastError.message);
       chrome.bluetoothLowEnergy.connect(app.uuid, app.getConnection);
-//      app.refreshDeviceList();
+       //Hack to deal with connections not showing up right away
       return;
     }
 
@@ -145,22 +149,20 @@ console.log('Connect='+app.uuid);
 },
 
 getCharacteristics: function(services) {
-//console.log('getCharacteristics');
-      if (services.length === 0) {  //Hack to deal with services not showing up right away
-console.log('services.length === 0 -- uuid='+app.uuid);
+      if (services.length === 0) {  //Another Hack to deal with services not showing up right away
+//console.log('services.length === 0 -- uuid='+app.uuid);
         chrome.bluetoothLowEnergy.getServices(app.uuid, app.getCharacteristics);
         return;
       }
      
       for (var i = 0; i < services.length; i++) {
         if (services[i].uuid == RFDUINO_SERVICE_UUID) {
-//console.log('Testing Service='+services[i].uuid +' '+ RFDUINO_SERVICE_UUID);
           app.service = services[i];
           break;
         }
       }
       if (app.service === undefined) return;
-//console.log('GetService='+app.service.uuid);
+
     if (chrome.runtime.lastError) {
       console.log('Fubar: ' + chrome.runtime.lastError.message);
       app.refreshDeviceList();
@@ -174,15 +176,13 @@ console.log('services.length === 0 -- uuid='+app.uuid);
       app.refreshDeviceList();
       return;
     }
-//console.log('characteristics=' + JSON.stringify(characteristics));
       for (var i = 0; i < characteristics.length; i++) {
         if (characteristics[i].uuid == DISCONNECT_CHARACTERISTIC_UUID) 
           app.disConnectCmd = characteristics[i];
         if (characteristics[i].uuid == RECEIVE_CHARACTERISTIC_UUID) 
           app.data = characteristics[i];
       }
-//console.log('set app.disconnect='+JSON.stringify(app.disconnect));
-//      app.data = chrc.instanceId;
+
       chrome.bluetoothLowEnergy.startCharacteristicNotifications((app.data).instanceId,
         function() {
           if (chrome.runtime.lastError) {
@@ -191,7 +191,6 @@ console.log('services.length === 0 -- uuid='+app.uuid);
             app.refreshDeviceList();
             return;
           }
-console.log('Listen='+app.data.uuid);
 
     $('#deviceUUID').html(app.name);
         chrome.bluetoothLowEnergy.onCharacteristicValueChanged.addListener(
@@ -210,6 +209,7 @@ onData: function(data) {
     else if (a[0] < 3072) {data2.innerHTML = Math.max(0,Math.round((a[0]-2048-soilZero)/soilSlope));}
     else                  {data3.innerHTML = Math.max(0,Math.round((a[0]-3072-lightZero)/lightSlope*10)/10);}
 },
+
 disconnect: function() {
     if (app.disConnectCmd === undefined) return;
     console.log('Disconnecting=' + app.uuid);
@@ -218,12 +218,12 @@ disconnect: function() {
     chrome.bluetoothLowEnergy.writeCharacteristicValue(app.disConnectCmd.instanceId,
                                                    (new Uint8Array([])).buffer,
                                                    function() {
-  if (chrome.runtime.lastError) {
-    console.log('Failed to write value: ' + chrome.runtime.lastError.message);
-    return;
-  }
-  app.disConnectCmd = undefined;
-});
+      if (chrome.runtime.lastError) {
+        console.log('Failed to write value: ' + chrome.runtime.lastError.message);
+        return;
+      }
+      app.disConnectCmd = undefined;
+    });
           chrome.bluetoothLowEnergy.disconnect(app.uuid, function() {
             console.log('Disconnecting');
             if (chrome.runtime.lastError) {
@@ -267,11 +267,8 @@ showDetailPage: function() {
     $('#mainPage').hide();
     $('#detailPage').show();
 },
-onError: function(reason) {
-    alert(reason);
-},
 
-eight2sixteen: function (data){
+eight2sixteen: function (data){  //ChromeOS does not seem to suport uint16Array
   a = new Uint8Array(data);
   b=[];
   for (i=0; i<a.length; i+=2)  b.push((a[i+1]*256)+a[i]);
